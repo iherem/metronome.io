@@ -45,14 +45,9 @@ class AuctionBuyForm extends Component {
         .on('transactionHash', function (hash) {
           showWaiting(hash)
           web3.eth.getTransaction(hash)
-            .then(function () {
-              console.log('testing error')
-              throw new Error('Testing')
-            })
             .then(storeTxData)
             .catch(function (err) {
-              console.log(err)
-              showError('Transaction details could not be retrieved', err)
+              showError('Transaction details could not be retrieved', err, hash)
             })
         })
         .on('receipt', function (receipt) {
@@ -80,7 +75,7 @@ class AuctionBuyForm extends Component {
     const {
       backToBuyOptions,
       currentPrice,
-      error,
+      errorData,
       eth,
       hideBuyPanel,
       met,
@@ -96,6 +91,8 @@ class AuctionBuyForm extends Component {
 
     const allowBuy = !(new BigNumber(eth).eq(0)) && userAccount
 
+    const hash = ongoingTx.hash || errorData.hash
+
     function withRate (eventHandler) {
       return function (ev) {
         eventHandler({
@@ -109,6 +106,7 @@ class AuctionBuyForm extends Component {
       const bigValue = new BigNumber(value)
       return bigValue.toFixed()
     }
+
     return (
       <React.Fragment>
         <div className="auction-panel__header header__meta-mask --showMetaMask">
@@ -124,11 +122,15 @@ class AuctionBuyForm extends Component {
           <div className="auction-panel__body--inner">
             <div className="panel__buy-meta-mask --showMetaMask">
               <section className="buy-meta-mask__section">
-                {error && error.err.message &&
+                {errorData.err && errorData.err.message &&
                   <div className="buy-meta-mask__current-price meta-mask__error">
-                    <span title={error.err.message}>{error.hint}</span>
-                    { ongoingTx.hash
-                      ? <span> - Check status in the <a target="_blank" href={`${metExplorerUrl}/transactions/${ongoingTx.hash}`}>explorer</a> or try again</span>
+                    <span title={errorData.err.message}>{errorData.hint}</span>
+                    { hash
+                      ? <span> - Check status in the <a
+                        target="_blank"
+                        href={`${metExplorerUrl}/transactions/${hash}`}>
+                        explorer
+                      </a> or try again</span>
                       : <span> - Try again</span>
                     }
                   </div>}
@@ -179,7 +181,7 @@ const mapStateToProps = state => ({
   ...state.buyForm,
   auctionsAddress: state.config.auctionsAddress,
   currentPrice: state.auction.status.currentPrice,
-  error: state.buyPanel.error,
+  errorData: state.buyPanel.errorData,
   rates: state.rates,
   userAccount: state.user.accounts[0],
   ongoingTx: state.buyPanel.ongoingTx,
@@ -190,9 +192,9 @@ const mapDispatchToProps = dispatch => ({
   clearForm: () => dispatch({
     type: 'CLEAR_BUY_FORM'
   }),
-  showError: (hint, err) => dispatch({
+  showError: (hint, err, hash) => dispatch({
     type: 'SHOW_BUY_ERROR',
-    payload: { hint, err }
+    payload: { hint, err, hash }
   }),
   showReceipt: payload => dispatch({
     type: 'SHOW_BUY_RECEIPT',
