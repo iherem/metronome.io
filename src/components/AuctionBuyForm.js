@@ -45,28 +45,33 @@ class AuctionBuyForm extends Component {
         .on('transactionHash', function (hash) {
           showWaiting(hash)
           web3.eth.getTransaction(hash)
+            .then(function () {
+              console.log('testing error')
+              throw new Error('Testing')
+            })
             .then(storeTxData)
             .catch(function (err) {
-              showError('Transaction details could not be retrieved - Try again', err)
+              console.log(err)
+              showError('Transaction details could not be retrieved', err)
             })
         })
         .on('receipt', function (receipt) {
           if (!receipt.status) {
-            showError('Transaction reverted - Try again', new Error('Transaction status is falsy'))
+            showError('Transaction reverted', new Error('Transaction status is falsy'))
             return
           }
           if (!receipt.logs.length) {
-            showError('Transaction failed - Try again', new Error('Transaction logs missing'))
+            showError('Purchase failed', new Error('Transaction logs missing'))
             return
           }
           showReceipt(receipt)
           clearForm()
         })
         .on('error', function (err) {
-          showError('Transaction error - Try again', err)
+          showError('Transaction error', err)
         })
     } catch (err) {
-      showError('Transaction could not be sent - Try again', err)
+      showError('Transaction could not be sent', err)
     }
   }
 
@@ -82,7 +87,9 @@ class AuctionBuyForm extends Component {
       rates,
       updateEth,
       updateMet,
-      userAccount
+      userAccount,
+      ongoingTx,
+      metExplorerUrl
     } = this.props
 
     const fiatValue = new BigNumber(eth).times(rates.ETH_USD).toString()
@@ -120,6 +127,10 @@ class AuctionBuyForm extends Component {
                 {error && error.err.message &&
                   <div className="buy-meta-mask__current-price meta-mask__error">
                     <span title={error.err.message}>{error.hint}</span>
+                    { ongoingTx.hash
+                      ? <span> - Check status in the <a target="_blank" href={`${metExplorerUrl}/transactions/${ongoingTx.hash}`}>explorer</a> or try again</span>
+                      : <span> - Try again</span>
+                    }
                   </div>}
                 <div className="buy-meta-mask__current-price">
                   <span>Current Auction Price</span>
@@ -170,7 +181,9 @@ const mapStateToProps = state => ({
   currentPrice: state.auction.status.currentPrice,
   error: state.buyPanel.error,
   rates: state.rates,
-  userAccount: state.user.accounts[0]
+  userAccount: state.user.accounts[0],
+  ongoingTx: state.buyPanel.ongoingTx,
+  metExplorerUrl: state.config.metExplorerUrl
 })
 
 const mapDispatchToProps = dispatch => ({
